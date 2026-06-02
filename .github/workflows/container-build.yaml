@@ -1,0 +1,34 @@
+name: Build and Push Container (GHCR)
+
+on:
+  push:
+    branches: ["main"]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      # Checkout repository code
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Build container image from Containerfile
+      - name: Build image
+        run: podman build -t myapp:latest .
+
+      # Login to GitHub Container Registry (GHCR)
+      - name: Login to GHCR
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | podman login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      # Tag image for GHCR
+      - name: Tag image
+        run: podman tag myapp:latest ghcr.io/${{ github.repository_owner }}/myapp:latest
+
+      # Push image to GHCR
+      - name: Push image
+        run: podman push ghcr.io/${{ github.repository_owner }}/myapp:latest
