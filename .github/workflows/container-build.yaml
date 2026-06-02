@@ -49,6 +49,7 @@ jobs:
             -t ghcr.io/${{ env.OWNER_LC }}/myapp:latest \
             -t ghcr.io/${{ env.OWNER_LC }}/myapp:${{ env.SHA_TAG }} \
             $([ -n "${{ env.RELEASE_TAG }}" ] && echo "-t ghcr.io/${{ env.OWNER_LC }}/myapp:${{ env.RELEASE_TAG }}")
+            .
 
       # Push latest tag to registry
       - name: Push latest
