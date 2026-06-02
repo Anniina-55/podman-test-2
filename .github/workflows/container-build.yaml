@@ -45,12 +45,14 @@ jobs:
       # - optional release tag: only if user provided one
       - name: Build image (all tags)
         run: |
-          podman build \
-            -t ghcr.io/${{ env.OWNER_LC }}/myapp:latest \
-            -t ghcr.io/${{ env.OWNER_LC }}/myapp:${{ env.SHA_TAG }} \
-            $([ -n "${{ env.RELEASE_TAG }}" ] && echo "-t ghcr.io/${{ env.OWNER_LC }}/myapp:${{ env.RELEASE_TAG }}")
-            .
+          TAGS="-t ghcr.io/${{ env.OWNER_LC }}/myapp:latest -t ghcr.io/${{ env.OWNER_LC }}/myapp:${{ env.SHA_TAG }}"
 
+          if [ -n "${{ env.RELEASE_TAG }}" ]; then
+          TAGS="$TAGS -t ghcr.io/${{ env.OWNER_LC }}/myapp:${{ env.RELEASE_TAG }}"
+          fi
+
+          podman build $TAGS .
+      
       # Push latest tag to registry
       - name: Push latest
         run: podman push ghcr.io/${{ env.OWNER_LC }}/myapp:latest
