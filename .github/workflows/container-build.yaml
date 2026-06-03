@@ -26,18 +26,14 @@ jobs:
       - name: Login to GHCR
         run: echo "${{ secrets.GHCR_TOKEN }}" | podman login ghcr.io -u ${{ github.actor }} --password-stdin
 
-      # Cache: pull cache image if exists
-      - name: Pull cache image
-        run: podman pull ghcr.io/${{ env.OWNER_LC }}/myapp:latest || true
-
-      # Build container image (with cache) and attach tags:
+      # Build container image and attach tags:
       # - latest: always points to newest build
       # - SHA tag: specific commit version
+      # - uses local layer cache if available (Podman default behavior)
       - name: Build image
         run: |
            podman build \
             --layers \
-            --cache-from ghcr.io/${{ env.OWNER_LC }}/myapp:latest \
             -t ghcr.io/${{ env.OWNER_LC }}/myapp:latest \
             -t ghcr.io/${{ env.OWNER_LC }}/myapp:${{ env.SHA_TAG }} \
             .
