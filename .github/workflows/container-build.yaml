@@ -37,7 +37,7 @@ jobs:
         run: |
            podman build \
             --layers \
-            --cache-from ghcr.io//${{ env.OWNER_LC }}/myapp:latest \
+            --cache-from ghcr.io/${{ env.OWNER_LC }}/myapp:latest \
             -t ghcr.io/${{ env.OWNER_LC }}/myapp:latest \
             -t ghcr.io/${{ env.OWNER_LC }}/myapp:${{ env.SHA_TAG }} \
             .
