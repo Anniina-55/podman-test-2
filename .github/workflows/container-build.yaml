@@ -4,12 +4,6 @@ on:
   push:
     branches: ["main"]
 
-  workflow_dispatch:
-    inputs:
-      tag:
-        description: "Optional release tag (e.g. v1.0.0)"
-        required: false
-
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -23,41 +17,32 @@ jobs:
       - name: Set lowercase owner
         run: echo "OWNER_LC=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
 
-      # Define image tags:
-      # - SHA_TAG: short commit hash for traceable builds
-      # - RELEASE_TAG: optional manual tag from workflow_dispatch input
-      - name: Set tags
+      # Define SHA_TAG: short commit hash for traceable builds
+      - name: Set SHA tag
         run: |
           echo "SHA_TAG=${GITHUB_SHA::7}" >> $GITHUB_ENV
-          echo "RELEASE_TAG=${{ github.event.inputs.tag }}" >> $GITHUB_ENV
 
       # Authenticate to GitHub Container Registry using PAT stored in secrets
       - name: Login to GHCR
         run: echo "${{ secrets.GHCR_TOKEN }}" | podman login ghcr.io -u ${{ github.actor }} --password-stdin
 
-      # Build container image and attach multiple tags:
+      # Cache: pull cache image if exists
+      - name: Pull cache image
+        run: podman pull ghcr.io/${{ env.OWNER_LC }}/myapp:latest || true
+
+      # Build container image (with cache) and attach tags:
       # - latest: always points to newest build
       # - SHA tag: specific commit version
-      # - optional release tag: only if user provided one
-      - name: Build image (all tags)
+      - name: Build image
         run: |
-          TAGS="-t ghcr.io/${{ env.OWNER_LC }}/myapp:latest -t ghcr.io/${{ env.OWNER_LC }}/myapp:${{ env.SHA_TAG }}"
-
-          if [ -n "${{ env.RELEASE_TAG }}" ]; then
-          TAGS="$TAGS -t ghcr.io/${{ env.OWNER_LC }}/myapp:${{ env.RELEASE_TAG }}"
-          fi
-
-          podman build $TAGS .
-      
-      # Push latest tag to registry
-      - name: Push latest
-        run: podman push ghcr.io/${{ env.OWNER_LC }}/myapp:latest
-
-      # Push commit-specific tag
-      - name: Push SHA tag
-        run: podman push ghcr.io/${{ env.OWNER_LC }}/myapp:${{ env.SHA_TAG }}
-
-      # Push release tag only if user provided one via workflow_dispatch
-      - name: Push release tag (if exists)
-        if: ${{ github.event.inputs.tag != '' }}
-        run: podman push ghcr.io/${{ env.OWNER_LC }}/myapp:${{ env.RELEASE_TAG }}
+           podman build \
+            --layers \
+            --cache-from ghcr.io//${{ env.OWNER_LC }}/myapp:latest \
+            -t ghcr.io/${{ env.OWNER_LC }}/myapp:latest \
+            -t ghcr.io/${{ env.OWNER_LC }}/myapp:${{ env.SHA_TAG }} \
+            .
+      # Push tags to registry
+      - name: Push latest image
+        run: |
+          podman push ghcr.io/${{ env.OWNER_LC }}/myapp:latest
+          podman push ghcr.io/${{ env.OWNER_LC }}/myapp:${{ env.SHA_TAG }}
