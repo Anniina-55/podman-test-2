@@ -1,44 +1,43 @@
-name: Build and push container image to GHCR
+name: Build and deploy versioned image to GHCR + Render
 
 on:
   push:
-    branches: ["main"]
+    tags:
+      - "v*"
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-      # Fetch repository source code
+      # Checkout source code
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # Convert owner name to lowercase because GHCR requires lowercase image paths
+      # Lowercase owner for GHCR compatibility
       - name: Set lowercase owner
         run: echo "OWNER_LC=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
 
-      # Define SHA_TAG: short commit hash for traceable builds
-      - name: Set SHA tag
-        run: |
-          echo "SHA_TAG=${GITHUB_SHA::7}" >> $GITHUB_ENV
+      # Use git tag as image version (v1.0.0 etc.)
+      - name: Set image tag
+        run: echo "IMAGE_TAG=${GITHUB_REF_NAME}" >> $GITHUB_ENV
 
-      # Authenticate to GitHub Container Registry using PAT stored in secrets
+      # Login to GHCR
       - name: Login to GHCR
         run: echo "${{ secrets.GHCR_TOKEN }}" | podman login ghcr.io -u ${{ github.actor }} --password-stdin
 
-      # Build container image and attach tags:
-      # - latest: always points to newest build
-      # - SHA tag: specific commit version
-      # - uses local layer cache if available (Podman default behavior)
+      # Build image (ONLY version tag)
       - name: Build image
         run: |
-           podman build \
-            --layers \
-            -t ghcr.io/${{ env.OWNER_LC }}/myapp:latest \
-            -t ghcr.io/${{ env.OWNER_LC }}/myapp:${{ env.SHA_TAG }} \
+          podman build \
+            -t ghcr.io/${{ env.OWNER_LC }}/myapp:${{ env.IMAGE_TAG }} \
             .
-      # Push tags to registry
-      - name: Push latest image
+
+      # Push versioned image
+      - name: Push image
         run: |
-          podman push ghcr.io/${{ env.OWNER_LC }}/myapp:latest
-          podman push ghcr.io/${{ env.OWNER_LC }}/myapp:${{ env.SHA_TAG }}
+          podman push ghcr.io/${{ env.OWNER_LC }}/myapp:${{ env.IMAGE_TAG }}
+
+      # Trigger Render deployment
+      - name: Trigger Render deploy
+        run: curl -X POST ${{ secrets.RENDER_DEPLOY_HOOK }}
